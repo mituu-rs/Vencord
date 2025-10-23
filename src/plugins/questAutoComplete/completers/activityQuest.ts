@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { showNotification } from "@api/Notifications";
 import { findByPropsLazy } from "@webpack";
 import { RestAPI } from "@webpack/common";
 
@@ -38,6 +37,8 @@ export async function completeActivityQuest(state: QuestCompletionState): Promis
 
         debug("Completing activity quest:", questName);
 
+        let lastNotifiedMinute = -1;
+
         while (true) {
             const res = await RestAPI.post({
                 url: `/quests/${quest.id}/heartbeat`,
@@ -48,8 +49,10 @@ export async function completeActivityQuest(state: QuestCompletionState): Promis
             const percentage = calculateProgress(progress, secondsNeeded);
             debug(`Activity quest progress: ${progress}/${secondsNeeded} (${percentage}%)`);
 
-            if (settings.store.notifyOnProgress && progress % 60 === 0) {
+            const currentMinute = Math.floor(progress / 60);
+            if (settings.store.notifyOnProgress && currentMinute > lastNotifiedMinute) {
                 notify("progress", questName, `Progress: ${progress}/${secondsNeeded} (${percentage}%)`);
+                lastNotifiedMinute = currentMinute;
             }
 
             await new Promise(resolve => setTimeout(resolve, 20 * 1000));
@@ -68,11 +71,7 @@ export async function completeActivityQuest(state: QuestCompletionState): Promis
     } catch (error) {
         logger.error("Failed to complete activity quest:", error);
         const message = error instanceof Error ? error.message : String(error);
-        showNotification({
-            title: "[Quest] Error",
-            body: `Failed to complete ${questName}: ${message}`,
-            color: "var(--status-danger)"
-        });
+        notify("error", "Error", `Failed to complete ${questName}: ${message}`);
         throw error;
     }
 }
