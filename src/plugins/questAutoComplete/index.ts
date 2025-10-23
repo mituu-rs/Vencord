@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { showNotification } from "@api/Notifications";
 import { Devs } from "@utils/constants";
 import definePlugin from "@utils/types";
 import { findByPropsLazy } from "@webpack";
@@ -12,7 +11,7 @@ import { findByPropsLazy } from "@webpack";
 import { completeActivityQuest, completeGameQuest, completeStreamQuest, completeVideoQuest } from "./completers";
 import { settings } from "./settings";
 import type { Quest, QuestCompletionState } from "./types";
-import { debug, findActiveQuest, getQuestTaskType, isQuestTypeEnabled, logger } from "./utils";
+import { debug, findActiveQuest, getQuestTaskType, logger, notify } from "./utils";
 
 // Discord stores accessed via webpack
 const QuestsStore = findByPropsLazy("quests", "getQuest");
@@ -27,21 +26,19 @@ async function completeQuest(quest: Quest): Promise<void> {
 
     if (!taskName) {
         logger.error("Could not determine task type for quest:", quest.id);
-        showNotification({
-            title: "[Quest] Error",
-            body: "Could not determine quest task type",
-            color: "var(--status-danger)"
-        });
-        return;
-    }
-
-    if (!isQuestTypeEnabled(taskName)) {
-        debug(`Quest type ${taskName} is disabled in settings, skipping`);
+        notify("error", "Error", "Could not determine quest task type");
         return;
     }
 
     const taskConfig = quest.config.taskConfig ?? quest.config.taskConfigV2;
-    const secondsNeeded = taskConfig!.tasks[taskName].target;
+
+    if (!taskConfig) {
+        logger.error("Task config is missing for quest:", quest.id);
+        notify("error", "Error", "Quest configuration is invalid");
+        return;
+    }
+
+    const secondsNeeded = taskConfig.tasks[taskName].target;
     const secondsDone = quest.userStatus?.progress?.[taskName]?.value ?? 0;
 
     const state: QuestCompletionState = {
@@ -97,6 +94,13 @@ function tryCompleteActiveQuest(): void {
             return;
         }
 
+        debug(`currentQuestState?.quest.id: ${currentQuestState?.quest.id}, quest.id: ${quest.id}`);
+        // Don't start if already completing this quest
+        if (currentQuestState?.quest.id === quest.id) {
+            debug("Quest already in progress, skipping");
+            return;
+        }
+
         logger.info("Found active quest:", quest.config.messages.questName);
         completeQuest(quest);
     } catch (error) {
@@ -117,7 +121,7 @@ function cleanupCurrentQuest(): void {
 
 export default definePlugin({
     name: "QuestCompleter",
-    description: "Automatically completes Discord quests. Enable 'Auto Start' in settings or use the Vencord Toolbox button to manually trigger.",
+    description: "Automatically completes Discord quests. You can disable 'Auto Start' in settings to manually trigger with the Vencord Toolbox button.",
     authors: [Devs.mituu],
     dependencies: ["VencordToolbox"],
     settings,
@@ -130,30 +134,27 @@ export default definePlugin({
                     logger.info("Manually triggered quest completion");
                     completeQuest(quest);
                 } else {
-                    showNotification({
-                        title: "[Quest] No Active Quests",
-                        body: "Accept a quest in Discover → Quests first!",
-                        color: "var(--status-warning)"
-                    });
+                    notify("warning", "No Active Quests", "Accept a quest in Discover → Quests first!");
                 }
             } catch (error) {
                 logger.error("Failed to complete quest:", error);
                 const message = error instanceof Error ? error.message : String(error);
-                showNotification({
-                    title: "[Quest] Error",
-                    body: message,
-                    color: "var(--status-danger)"
-                });
+                notify("error", "Error", message);
             }
         }
     },
 
     flux: {
-        // Automatically detect when a quest is accepted or updated
-        QUESTS_FETCH_SUCCESS() {
+        QUESTS_FETCH_CURRENT_QUESTS_SUCCESS() {
             if (settings.store.autoStart) {
-                debug("Quest data updated, checking for active quests...");
+                debug("Quests loaded - checking for active quests...");
                 setTimeout(() => tryCompleteActiveQuest(), 1000);
+            }
+        },
+        QUESTS_ENROLL_SUCCESS() {
+            if (settings.store.autoStart) {
+                debug("Quest enrolled - starting auto-complete...");
+                setTimeout(() => tryCompleteActiveQuest(), 500);
             }
         }
     },

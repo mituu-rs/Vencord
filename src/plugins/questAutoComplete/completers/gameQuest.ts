@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { showNotification } from "@api/Notifications";
 import { findByPropsLazy } from "@webpack";
 import { FluxDispatcher, RestAPI } from "@webpack/common";
 
@@ -23,11 +22,7 @@ export async function completeGameQuest(state: QuestCompletionState): Promise<vo
     if (!isDesktopApp()) {
         const message = "Desktop game quests require the Discord desktop app";
         logger.warn(message);
-        showNotification({
-            title: "[Quest] Desktop App Required",
-            body: `${questName}: ${message}`,
-            color: "var(--status-warning)"
-        });
+        notify("warning", "Desktop App Required", `${questName}: ${message}`);
         return;
     }
 
@@ -136,6 +131,7 @@ export async function completeGameQuest(state: QuestCompletionState): Promise<vo
 
         FluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", heartbeatHandler);
 
+        // Register cleanup immediately to prevent memory leak if errors occur
         state.cleanupFunctions.push(() => {
             cleanup();
             FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", heartbeatHandler);
@@ -145,11 +141,7 @@ export async function completeGameQuest(state: QuestCompletionState): Promise<vo
     } catch (error) {
         logger.error("Failed to complete game quest:", error);
         const message = error instanceof Error ? error.message : String(error);
-        showNotification({
-            title: "[Quest] Error",
-            body: `Failed to complete ${questName}: ${message}`,
-            color: "var(--status-danger)"
-        });
+        notify("error", "Error", `Failed to complete ${questName}: ${message}`);
         throw error;
     }
 }

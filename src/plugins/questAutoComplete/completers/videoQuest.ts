@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { showNotification } from "@api/Notifications";
 import { RestAPI } from "@webpack/common";
 
 import type { QuestCompletionState } from "../types";
@@ -65,11 +64,7 @@ export async function completeVideoQuest(state: QuestCompletionState): Promise<v
     } catch (error) {
         logger.error("Failed to complete video quest:", error);
         const message = error instanceof Error ? error.message : String(error);
-        showNotification({
-            title: "[Quest] Error",
-            body: `Failed to complete ${questName}: ${message}`,
-            color: "var(--status-danger)"
-        });
+        notify("error", "Error", `Failed to complete ${questName}: ${message}`);
         throw error;
     }
 }

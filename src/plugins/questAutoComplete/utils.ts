@@ -18,7 +18,6 @@ export const logger = new Logger("QuestComplete");
 export function findActiveQuest(questsMap: Map<string, Quest>): Quest | null {
     const quests = [...questsMap.values()].filter(
         quest =>
-            quest.id !== "1412491570820812933" && // Excluded quest ID
             quest.userStatus?.enrolledAt &&
             !quest.userStatus?.completedAt &&
             new Date(quest.config.expiresAt).getTime() > Date.now()
@@ -52,43 +51,37 @@ export function getQuestTaskType(quest: Quest): QuestTaskType | null {
     return taskTypes.find(type => taskConfig.tasks[type] != null) || null;
 }
 
-/**
- * Check if a quest type is enabled in settings
- */
-export function isQuestTypeEnabled(taskType: QuestTaskType): boolean {
-    const { store } = settings;
-
-    switch (taskType) {
-        case "WATCH_VIDEO":
-        case "WATCH_VIDEO_ON_MOBILE":
-            return store.enableVideoQuests;
-        case "PLAY_ON_DESKTOP":
-            return store.enableGameQuests;
-        case "STREAM_ON_DESKTOP":
-            return store.enableStreamQuests;
-        case "PLAY_ACTIVITY":
-            return store.enableActivityQuests;
-        default:
-            return false;
-    }
-}
 
 /**
  * Show a notification if enabled in settings
  */
-export function notify(type: "start" | "progress" | "complete", title: string, body: string) {
+export function notify(type: "start" | "progress" | "complete" | "error" | "warning", title: string, body: string) {
     const { store } = settings;
 
     let shouldNotify = false;
+    let color: string | undefined;
+    let noPersist = false;
+    let permanent = false;
+
     switch (type) {
         case "start":
             shouldNotify = store.notifyOnStart;
             break;
         case "progress":
             shouldNotify = store.notifyOnProgress;
+            noPersist = true;
+            permanent = true;
             break;
         case "complete":
             shouldNotify = store.notifyOnComplete;
+            break;
+        case "error":
+            shouldNotify = true; // Always show errors
+            color = "var(--status-danger)";
+            break;
+        case "warning":
+            shouldNotify = true; // Always show warnings
+            color = "var(--status-warning)";
             break;
     }
 
@@ -97,8 +90,9 @@ export function notify(type: "start" | "progress" | "complete", title: string, b
     showNotification({
         title: `[Quest] ${title}`,
         body,
-        noPersist: type === "progress",
-        permanent: type === "progress"
+        color,
+        noPersist,
+        permanent
     });
 }
 

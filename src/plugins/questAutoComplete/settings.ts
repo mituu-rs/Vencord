@@ -21,32 +21,12 @@ export const settings = definePluginSettings({
     },
     notifyOnProgress: {
         type: OptionType.BOOLEAN,
-        description: "Show notification on quest progress updates",
+        description: "Show notification on quest progress updates (for debug purposes, notifies every minute)",
         default: false
     },
     notifyOnComplete: {
         type: OptionType.BOOLEAN,
         description: "Show notification when quest is completed",
-        default: true
-    },
-    enableVideoQuests: {
-        type: OptionType.BOOLEAN,
-        description: "Auto-complete video quests",
-        default: true
-    },
-    enableGameQuests: {
-        type: OptionType.BOOLEAN,
-        description: "Auto-complete desktop game quests",
-        default: true
-    },
-    enableStreamQuests: {
-        type: OptionType.BOOLEAN,
-        description: "Auto-complete stream quests",
-        default: true
-    },
-    enableActivityQuests: {
-        type: OptionType.BOOLEAN,
-        description: "Auto-complete activity quests",
         default: true
     },
     debugMode: {
