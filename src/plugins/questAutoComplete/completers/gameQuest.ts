@@ -39,19 +39,45 @@ export async function completeGameQuest(state: QuestCompletionState): Promise<vo
         });
 
         const appData = res.body[0];
-        const exeInfo = appData.executables.find((x: any) => x.os === "win32");
+
+        // Detect OS
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        const isLinux = userAgent.includes("linux");
+        const isMac = userAgent.includes("mac");
+
+        let osType = "win32";
+        if (isLinux) osType = "linux";
+        else if (isMac) osType = "darwin";
+
+        const exeInfo = appData.executables.find((x: any) => x.os === osType);
 
         if (!exeInfo) {
-            throw new Error("No Windows executable found for this game");
+            throw new Error(`No ${osType} executable found for this game`);
         }
 
         const exeName = exeInfo.name.replace(">", "");
         const pid = Math.floor(Math.random() * 30000) + 1000;
 
+        // Generate OS-appropriate paths
+        let cmdLine: string;
+        let exePath: string;
+
+        if (isLinux) {
+            cmdLine = `/usr/bin/${exeName}`;
+            exePath = `/usr/bin/${exeName}`;
+        } else if (isMac) {
+            cmdLine = `/Applications/${appData.name}.app/Contents/MacOS/${exeName}`;
+            exePath = `/Applications/${appData.name}.app/Contents/MacOS/${exeName}`;
+        } else {
+            // Windows
+            cmdLine = `C:\\Program Files\\${appData.name}\\${exeName}`;
+            exePath = `c:/program files/${appData.name.toLowerCase()}/${exeName}`;
+        }
+
         const fakeGame = {
-            cmdLine: `C:\\Program Files\\${appData.name}\\${exeName}`,
+            cmdLine,
             exeName,
-            exePath: `c:/program files/${appData.name.toLowerCase()}/${exeName}`,
+            exePath,
             hidden: false,
             isLauncher: false,
             id: applicationId,
